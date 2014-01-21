@@ -46,6 +46,7 @@ class JSONRegistry(object):
             db.define_table('json_type_registry',
                 Field('type', notnull=True),
                 Field('fieldname', notnull=True),
+                Field('column_name'),
                 Field('db_type', notnull=True),
                 migrate=True,
                 )
@@ -168,7 +169,7 @@ class JSONType(object):
                     value = field.compute(row)
                 else:
                     value = field.compute(row, context)
-                row[field.fieldname] = value
+                row[field.column_name] = value
                 continue
             if context.partial and field.fieldname not in context.data:
                 continue
@@ -177,7 +178,7 @@ class JSONType(object):
             except KeyError:
                 value = None
             if value is None:
-                row[field.fieldname] = None
+                row[field.column_name] = None
                 continue
             if field.type in {'datetime', 'date', 'time'}:
                 try:
@@ -223,7 +224,7 @@ class JSONType(object):
                     for i, child in enumerate(children):
                         ids[indexes[i]] = long(child['id'])
                 value = ids
-            row[field.fieldname] = value
+            row[field.column_name] = value
         return row
 
     def _update_row(self, db, row_dict):
