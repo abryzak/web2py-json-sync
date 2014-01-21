@@ -22,8 +22,6 @@ class AttrDict(dict):
 
 # TODO work out how to handle keys better (don't just assume single integer primary key)
 
-# TODO add name mapping, where the name in JSON isn't the same as column name in DB
-
 # TODO more efficient bulk updates / inserts (currently we try update then insert if count is 0)
 
 # TODO support truncate + bulk insert to update all data in table & know there's no updates
@@ -284,11 +282,12 @@ class JSONType(object):
         return self._bulk_sync(db, context)
 
 class JSONField(object):
-    our_attributes = {'date_format', 'dateutil_kwargs', 'compute'}
+    our_attributes = {'date_format', 'dateutil_kwargs', 'compute', 'column_name'}
     def __init__(self, fieldname, type='string', *args, **kwargs):
         for attr in JSONField.our_attributes:
             self.__dict__[attr] = None
         self.fieldname = fieldname
+        self.column_name = fieldname
         self.type = type
         self.field_kwargs = dict(**kwargs)
         self.field_args = list(args)
@@ -306,4 +305,4 @@ class JSONField(object):
             if ref_match:
                 ref_type = registry[ref_match.group(2)]
                 type = ref_match.group(1) + ' ' + ref_type.table_name
-        return Field(self.fieldname, type, *self.field_args, **self.field_kwargs)
+        return Field(self.column_name, type, *self.field_args, **self.field_kwargs)

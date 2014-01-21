@@ -3,8 +3,7 @@
 from distutils.core import setup
 
 setup(name='web2py-json-sync',
-      version='1.1',
-      description='Python Distribution Utilities',
+      version='1.2',
       author='Adam Bryzak',
       author_email='adam@bryzak.net',
       py_modules=['json_sync'],
