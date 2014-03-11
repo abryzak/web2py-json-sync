@@ -87,23 +87,26 @@ class JSONRegistry(object):
         raise AttributeError("%r object has no attribute %r" % (self.__class__, name))
 
 class Context(object):
-    def __init__(self, parent_context, type, data=None, seq=None, partial=False):
+    def __init__(self, parent_context, type, data=None, seq=None, partial=False, full_results=False):
         self.parent_context = parent_context
         self.type = type
         self.data = data
         self.seq = seq
         self.partial = partial
+        self.full_results = full_results
         self.index = -1
         if parent_context is not None:
             self.parents = [parent_context.data] + parent_context.parents
             self.parent_contexts = [parent_context] + parent_context.parent_contexts
             self.root = parent_context.root
             self.root_context = parent_context.root_context
+            if full_results: self.results = parent_context.results
         else:
             self.parents = []
             self.parent_contexts = []
             self.root = data
             self.root_context = self
+            if full_results: self.results = {}
 
 class JSONType(object):
     __getitem__ = _ga
@@ -200,7 +203,7 @@ class JSONType(object):
             if ref_match and ref_match.group(1) == 'reference':
                 ref_type = self._registry[ref_match.group(2)]
                 if type(value) not in {int, long}:
-                    new_context = Context(context, ref_type, data=AttrDict(value), partial=context.partial)
+                    new_context = Context(context, ref_type, data=AttrDict(value), partial=context.partial, full_results=context.full_results)
                     child = ref_type._sync(db, new_context)
                     # FIXME assumes ID
                     value = long(child['id'])
@@ -218,7 +221,7 @@ class JSONType(object):
                         seq.append(item)
                         indexes.append(i)
                 if seq:
-                    new_context = Context(context, ref_type, seq=seq, partial=context.partial)
+                    new_context = Context(context, ref_type, seq=seq, partial=context.partial, full_results=context.full_results)
                     children = ref_type._bulk_sync(db, new_context)
                     # FIXME assumes ID
                     for i, child in enumerate(children):
@@ -253,6 +256,8 @@ class JSONType(object):
         row_dict = self._create_row_dict(db, context)
         if not self._update_row(db, row_dict):
             db[self.table_name].insert(**row_dict)
+        if context.full_results:
+            context.results.setdefault(self.name, []).append(row_dict)
         return row_dict
 
     def _bulk_sync(self, db, context):
@@ -272,15 +277,21 @@ class JSONType(object):
                 bulk_insert_row_dicts.append(row_dict)
         if bulk_insert_row_dicts:
             db[self.table_name].bulk_insert(bulk_insert_row_dicts)
+        if context.full_results:
+            context.results.setdefault(self.name, []).extend(all_row_dicts)
         return all_row_dicts
 
-    def sync(self, db, obj, partial=False):
-        context = Context(None, self, data=AttrDict(obj), partial=partial)
-        return self._sync(db, context)
+    def sync(self, db, obj, partial=False, full_results=False):
+        context = Context(None, self, data=AttrDict(obj), partial=partial, full_results=full_results)
+        result = self._sync(db, context)
+        if full_results: return context.results
+        return result
 
-    def bulk_sync(self, db, seq, partial=False):
-        context = Context(None, self, seq=seq, partial=partial)
-        return self._bulk_sync(db, context)
+    def bulk_sync(self, db, seq, partial=False, full_results=False):
+        context = Context(None, self, seq=seq, partial=partial, full_results=full_results)
+        result = self._bulk_sync(db, context)
+        if full_results: return context.results
+        return result
 
 class JSONField(object):
     our_attributes = {'date_format', 'dateutil_kwargs', 'compute', 'column_name'}
